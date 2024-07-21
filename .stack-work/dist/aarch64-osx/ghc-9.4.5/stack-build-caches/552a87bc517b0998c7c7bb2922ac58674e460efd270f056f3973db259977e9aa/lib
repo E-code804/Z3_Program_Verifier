@@ -1,0 +1,18 @@
+/Users/erikpfeffer/Desktop/CS/UMD_CS/FinalProject/CHANGELOG.md:
+  hash: 9d5e5291ef9afac943333a68613f28fa7854de45fbf2f4169b70ae3595b43ccb
+/Users/erikpfeffer/Desktop/CS/UMD_CS/FinalProject/miniDafny.cabal:
+  hash: 8a9aa4eb51dba20e349777e30ee7e984d3d13ca234f4ae1b3345e2b69ec65623
+/Users/erikpfeffer/Desktop/CS/UMD_CS/FinalProject/src/DafnyParser.hs:
+  hash: f763d31e03b520ac8799da5c4d1aa3e21284fddee1a0b0440eba1922ff267f2d
+/Users/erikpfeffer/Desktop/CS/UMD_CS/FinalProject/src/Eval.hs:
+  hash: 9c237c5475a43bf4030e4668b9ca797788eb140d7b55f8e4224fd1b017a37475
+/Users/erikpfeffer/Desktop/CS/UMD_CS/FinalProject/src/Parser.hs:
+  hash: d914ac7f872d51d9736562ab3c607c5a6757036df95c9202dbcec44a9b496d46
+/Users/erikpfeffer/Desktop/CS/UMD_CS/FinalProject/src/Printer.hs:
+  hash: 24b86b0dac279ff4fe447378b516b0c9fcca50764de956958a5489f2c1d28cad
+/Users/erikpfeffer/Desktop/CS/UMD_CS/FinalProject/src/Syntax.hs:
+  hash: 3ad27beaeb34be4bf4e34571765b8b9e052c24ab2c5667e15b6578ef316fa6b7
+/Users/erikpfeffer/Desktop/CS/UMD_CS/FinalProject/src/WP.hs:
+  hash: e50c747f721129316944777d24b22eb7676f0722ef98193d27ec28acd540a2fd
+/Users/erikpfeffer/Desktop/CS/UMD_CS/FinalProject/src/Z3.hs:
+  hash: 74c3c80ea1584e354a2969b63fea250996cc558114376b32d9f62a3bacc8ac11

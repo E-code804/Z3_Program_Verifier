@@ -1,0 +1,8 @@
+(declare-const a Int)
+(declare-const b Int)
+(declare-const c Int)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(assert (not (=> (and (and (and (and (<= x a) (= y 0)) (= z (+ (+ x y) c))) (>= b 0)) (< x a)) (and (and (and (<= (+ x 1) a) (= y 0)) (= (+ z 1) (+ (+ (+ x 1) y) c))) (>= b 0)))))
+(check-sat)

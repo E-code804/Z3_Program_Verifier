@@ -1,0 +1,6 @@
+(declare-const m Int)
+(declare-const p Int)
+(declare-const x Int)
+(declare-const z Int)
+(assert (not (=> (and (and (>= x 0) (= (- z x) (- p m))) (not (> x 0))) (and (= z (- p m)) true))))
+(check-sat)
