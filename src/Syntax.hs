@@ -97,6 +97,7 @@ data Expression =
   | Val Value                          -- literal values
   | Op1 Uop Expression                 -- unary operators
   | Op2 Expression Bop Expression      -- binary operators
+  -- forall binding[expr]
   deriving (Eq, Ord, Show)
 
 {- | The literal values include ints, booleans, and a special value for

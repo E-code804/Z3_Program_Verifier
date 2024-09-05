@@ -6,7 +6,9 @@ import Printer
 import DafnyParser
 import WP
 import Z3
+import Eval
 import Control.Monad (liftM2, liftM3)
+import Control.Monad.State
 import Control.Applicative
 import GHC.Generics (Generic)
 import qualified Data.List as List
@@ -43,16 +45,37 @@ add1 n1 n2 = n1 + n2
 prop_Reverse :: [Int] -> Property
 prop_Reverse xs = reverse (reverse xs) === xs
 
--- Basic Testing for IntDiv.dfy
 
--- This arbitrary instance did not work because it match with another arbitrary
--- instance 'instance (Arbitrary a, Arbitrary b) => Arbitrary (a, b)'
--- This generates a positive integer for `n` and any integer for `m`
--- instance Arbitrary (Int, Int) where
---   arbitrary = do
---     m <- arbitrary         -- m can be any integer
---     n <- arbitrary `suchThat` (> 0)  -- n must be positive
---     return (m, n)
+
+
+
+
+-- Filter the [Specification] part of Method for Requires
+getRequiresPredicates :: Method -> [Predicate]
+getRequiresPredicates (Method _ _ _ specs _) = [p | Requires p <- specs]
+
+-- Evalute Predicates.
+evalPredicate :: Predicate -> Eval Value
+evalPredicate (Predicate expr) = evalE expr
+
+-- Should be prop here? Checking if predicate holds
+predHolds :: Predicate -> Store -> Bool
+predHolds p store = case evalStateT (evalPredicate p) store of
+  Just (BoolVal True) -> True
+  _                   -> False
+
+-- Example usage: 
+-- let preds = getRequiresPredicates wLoopToZero
+-- runTests preds initialStore
+-- AS OF NOW, outputs: *** Failed! Falsified (after 1 test): 
+runTests :: [Predicate] -> Store -> IO ()
+runTests preds store = mapM_ (\p -> quickCheck (predHolds p store)) preds
+-- getPredicate :: [Specification] -> 
+
+-- testMethod :: Method -> Property
+
+
+-- Basic Testing for IntDiv.dfy
 
 -- Needed to make a newtype wrapper to avoid conflict.
 newtype MyIntPair = MyIntPair (Int, Int) deriving Show
