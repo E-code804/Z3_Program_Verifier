@@ -11,6 +11,7 @@ import Control.Monad (liftM2, liftM3)
 import Control.Monad.State
 import Control.Applicative
 import GHC.Generics (Generic)
+import Data.List
 import qualified Data.List as List
 import Test.HUnit ((~?=))
 import qualified Test.HUnit
@@ -20,6 +21,7 @@ import Test.QuickCheck
     OrderedList (..),
     Property,
     Testable (..),
+    listOf,
     choose,
     classify,
     elements,
@@ -72,7 +74,28 @@ runTests :: [Predicate] -> Store -> IO ()
 runTests preds store = mapM_ (\p -> quickCheck (predHolds p store)) preds
 -- getPredicate :: [Specification] -> 
 
+-- CODE FOR "testMethod"
+getParamTypes :: Method -> [Type]
+getParamTypes (Method _ params _ _ _) = map snd params
+
+-- Gen an arbitrary value based on "Type"
+genValueForType :: Type -> Gen Value
+genValueForType TInt = IntVal <$> arbitrary
+genValueForType TBool = BoolVal <$> arbitrary
+genValueForType TArrayInt = ArrayVal <$> listOf arbitrary
+
+-- Gen values for the params of a method based on their types
+genParamsForMethod :: Method -> Gen [Value]
+genParamsForMethod method = mapM genValueForType (getParamTypes method)
+
+-- What I'm confused on:
+-- How to insert generated values into the method for evaluation.
+-- How to compare/create a proeprty using the postcondition and what the correct value should be.
+-- What I understand: precondition of valid inputs === postcondition of evaluation of method with the inputs.
 -- testMethod :: Method -> Property
+-- testMethod (Method name params returns specs block) = 
+--   let genParams = genParamsForMethod (Method name params returns specs block) in
+    -- A property for method testing.
 
 
 -- Basic Testing for IntDiv.dfy
