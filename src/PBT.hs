@@ -8,6 +8,8 @@ import WP
 import Z3
 import Eval
 import Control.Monad (liftM2, liftM3)
+import Data.Map (Map, (!?))
+import qualified Data.Map as Map
 import Control.Monad.State
 import Control.Applicative
 import GHC.Generics (Generic)
@@ -47,34 +49,11 @@ add1 n1 n2 = n1 + n2
 prop_Reverse :: [Int] -> Property
 prop_Reverse xs = reverse (reverse xs) === xs
 
-
-
-
-
-
 -- Filter the [Specification] part of Method for Requires
 getRequiresPredicates :: Method -> [Predicate]
-getRequiresPredicates (Method _ _ _ specs _) = [p | Requires p <- specs]
+getRequiresPredicates (Method _ _ _ specs _) = [p | Requires p <- specs] 
 
--- Evalute Predicates.
-evalPredicate :: Predicate -> Eval Value
-evalPredicate (Predicate expr) = evalE expr
-
--- Should be prop here? Checking if predicate holds
-predHolds :: Predicate -> Store -> Bool
-predHolds p store = case evalStateT (evalPredicate p) store of
-  Just (BoolVal True) -> True
-  _                   -> False
-
--- Example usage: 
--- let preds = getRequiresPredicates wLoopToZero
--- runTests preds initialStore
--- AS OF NOW, outputs: *** Failed! Falsified (after 1 test): 
-runTests :: [Predicate] -> Store -> IO ()
-runTests preds store = mapM_ (\p -> quickCheck (predHolds p store)) preds
--- getPredicate :: [Specification] -> 
-
--- CODE FOR "testMethod"
+-- Code for generating values for method parameters.
 getParamTypes :: Method -> [Type]
 getParamTypes (Method _ params _ _ _) = map snd params
 
@@ -86,17 +65,32 @@ genValueForType TArrayInt = ArrayVal <$> listOf arbitrary
 
 -- Gen values for the params of a method based on their types
 genParamsForMethod :: Method -> Gen [Value]
-genParamsForMethod method = mapM genValueForType (getParamTypes method)
+genParamsForMethod method = mapM genValueForType $ getParamTypes method
 
--- What I'm confused on:
--- How to insert generated values into the method for evaluation.
--- How to compare/create a proeprty using the postcondition and what the correct value should be.
--- What I understand: precondition of valid inputs === postcondition of evaluation of method with the inputs.
--- testMethod :: Method -> Property
--- testMethod (Method name params returns specs block) = 
---   let genParams = genParamsForMethod (Method name params returns specs block) in
-    -- A property for method testing.
+-- Function to check preconditions of a method hold for given parameters.
+pre :: Method -> [Value] -> Bool
+pre (Method _ params _ specs _) vs = 
+  if length params == length vs then
+    -- Set up the initial store with the input bindings by zipping w/ vs.
+    let initialStore = Map.fromList $ zip (map fst params) vs in
+    let requiresSpecs = [p | Requires p <- specs]
+    in all (\ (Predicate e) -> evaluate e initialStore == Just (BoolVal True)) requiresSpecs
+  else
+    False
 
+-- Function to check postconditions of a method holds after body executes.
+post :: Method -> Store -> Bool
+post (Method _ _ _ specs _) s =
+  let ensuresSpecs = [p | Ensures p <- specs] in
+    all (\ (Predicate e) -> evaluate e s == Just (BoolVal True)) ensuresSpecs
+
+prop_m :: Method -> Property
+prop_m m = 
+  forAll (genParamsForMethod m) $ \vs ->
+    pre m vs ==> 
+      case exec m vs of
+        Just s -> post m s
+        _ -> False
 
 -- Basic Testing for IntDiv.dfy
 
