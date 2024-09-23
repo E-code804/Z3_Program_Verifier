@@ -200,6 +200,7 @@ instance PP Expression where
            ppPrec (level bop) e1 <+> pp bop <+> ppPrec (level bop + 1) e2
      ppPrec _ e' = pp e'
      ppParens b = if b then PP.parens else id
+  -- pp (Forall n e1 e1) = 
 
 isBase :: Expression -> Bool
 isBase Val{} = True

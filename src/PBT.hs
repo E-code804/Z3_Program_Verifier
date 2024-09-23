@@ -71,7 +71,6 @@ genParamsForMethod method = mapM genValueForType $ getParamTypes method
 pre :: Method -> [Value] -> Bool
 pre (Method _ params _ specs _) vs = 
   if length params == length vs then
-    -- Set up the initial store with the input bindings by zipping w/ vs.
     let initialStore = Map.fromList $ zip (map fst params) vs in
     let requiresSpecs = [p | Requires p <- specs]
     in all (\ (Predicate e) -> evaluate e initialStore == Just (BoolVal True)) requiresSpecs
