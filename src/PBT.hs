@@ -5,6 +5,7 @@ import Syntax
 import Printer
 import DafnyParser
 import WP
+import qualified Parser as P
 import Z3
 import Eval
 import Control.Monad (liftM2, liftM3)

@@ -145,7 +145,20 @@ toSMTAux e = case e of
   Val _               -> error "Ignore arrays for this project"
   Op1 uop expr        -> op1Format uop expr
   Op2 expr1 bop expr2 -> op2Format expr1 bop expr2
-    
+  Forall bind expr    -> forallFormat bind expr
+  -- let expr = Forall ("x", TInt) (Op2 (Var (Name "x")) Gt (Val (IntVal 0)))
+  -- toSMTAux expr --> "(forall ((x Int)) (> x 0))"
+
+
+forallFormat :: Binding -> Expression -> String
+forallFormat (name, typ) expr =
+  "(forall ((" ++ name ++ " " ++ toSMTType typ ++ ")) " ++ toSMTAux expr ++ ")"
+
+-- Function to convert types to SMT-LIB types.
+toSMTType :: Type -> String
+toSMTType TInt     = "Int"
+toSMTType TBool    = "Bool"
+toSMTType TArrayInt = "Int" -- Placeholder for arrays.
 
 op1Format :: Uop -> Expression -> String
 op1Format uop expr = case uop of
@@ -180,7 +193,9 @@ getVariables p = case p of
   Var (Name n)        -> Set.singleton n
   Val _               -> Set.empty
   Op1 uop expr        -> getVariables expr
-  Op2 expr1 bop expr2 -> Set.union (getVariables expr1) (getVariables expr2) 
+  Op2 expr1 bop expr2 -> Set.union (getVariables expr1) (getVariables expr2)
+  Forall bind expr    -> getVariables expr
+  -- grab var to be declared
 
 
 -- | The name of the z3 executable. Change this to whatever it is in your system:

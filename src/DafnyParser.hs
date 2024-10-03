@@ -116,7 +116,7 @@ typeP = constP "int" TInt <|> constP "bool" TBool <|> constP "array<int>" TArray
 
 {- | Parsing Expressions -} 
 
-expP :: Parser Expression
+expP :: Parser Expression -- something wrong here when trying: P.parse specificationP "ensures isPrime <==> (m > 1 && forall j : int :: 2 <= j < m ==> m % j != 0)"
 expP    = conjP where
   conjP   = compP `P.chainl1` opAtLevel (level Conj)  
   compP   = catP `P.chainl1` opAtLevel (level Gt)
@@ -215,14 +215,17 @@ singleBindP, multiBindP :: Parser [Binding]
 singleBindP = wsP $ many bindingP
 multiBindP  = wsP $ bindingP `P.sepBy` (stringP ",")
 
+forAllSingleBindP :: Parser Binding
+forAllSingleBindP = wsP $ bindingP
+
 -- | ...and predicates...
 predicateP :: Parser Predicate
-predicateP = wsP $ justExprP where
+predicateP = wsP $ forAllP <|> justExprP where
   justExprP, forAllP :: Parser Predicate
   justExprP = liftA Predicate expP
-  forAllP   = undefined
-     -- Predicate <$> (stringP "forall" *> multiBindP <* stringP "::") <*> expP <|> 
-     -- Predicate <$> (stringP "forall" *> singleBindP <* stringP "::") <*> expP
+  forAllP   = Predicate <$> (Forall <$> (stringP "forall" *> forAllSingleBindP <* stringP "::") <*> expP)
+     -- Works for: P.parse predicateP "forall x : int :: x > 0"
+     -- Does not work for P.parse predicateP "forall x :: x > 0"
 
 -- | Finally, define a parser for statements:
 
@@ -244,7 +247,7 @@ statementP = wsP $ declP <|> assertP <|> assignP <|> ifP <|> emptyP <|> whileP w
      noPredP, withPredP :: Parser Statement
      noPredP   = (flip While <$> (stringP "while" *> optionalParensExpP) <*> pure emptyPredicate) <*> braces blockP
      withPredP = (flip While <$> (stringP "while" *> optionalParensExpP) 
-                 <*> (stringP "invariant" *> predicateP)) 
+                 <*> (stringP "invariant" *> predicateP)) -- may need many here for multiple invariants
                  <*> braces blockP
 
 

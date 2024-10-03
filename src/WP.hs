@@ -92,6 +92,8 @@ instance Subst Expression where
     Val v -> Val v
     Op1 uop expr -> Op1 uop $ subst expr x e'
     Op2 expr1 bop expr2 -> Op2 (subst expr1 x e') bop (subst expr2 x e') 
+    Forall (n, t) expr -> if n == x then e else Forall (n,t) (subst expr x e') -- keep forall but subst the body
+    -- Forall Binding Expression
 
 -- | As an example, consider the loop invariant of Square:
 --
