@@ -115,20 +115,23 @@ typeP :: Parser Type
 typeP = constP "int" TInt <|> constP "bool" TBool <|> constP "array<int>" TArrayInt
 
 {- | Parsing Expressions -} 
+forAllSingleBindP :: Parser Binding
+forAllSingleBindP = wsP $ bindingP
 
-expP :: Parser Expression -- something wrong here when trying: P.parse specificationP "ensures isPrime <==> (m > 1 && forall j : int :: 2 <= j < m ==> m % j != 0)"
-expP    = conjP where
-  conjP   = compP `P.chainl1` opAtLevel (level Conj)  
+-- P.parse specificationP "ensures m > 1 && forall j : int :: 2 <= j < m ==> m % j != 0" -> Right (Ensures (Predicate (Op2 (Op2 (Var (Name "m")) Gt (Val (IntVal 1))) Conj (Var (Name "forall")))))
+ -- something wrong here when trying: P.parse specificationP "ensures isPrime <==> (m > 1 && forall j : int :: 2 <= j < m ==> m % j != 0)"
+expP :: Parser Expression
+expP = conjP where -- could put forAllP here
+  forAllP = Forall <$> (stringP "forall" *> forAllSingleBindP <* stringP "::") <*> expP
+  conjP   = compP `P.chainl1` opAtLevel (level Conj)
   compP   = catP `P.chainl1` opAtLevel (level Gt)
   catP    = sumP `P.chainl1` opAtLevel (level Eq)
   sumP    = prodP `P.chainl1` opAtLevel (level Plus)
   prodP   = uopexpP `P.chainl1` opAtLevel (level Times)
-  uopexpP = baseP
-      <|> Op1 <$> uopP <*> uopexpP 
-  baseP = lenP
-       <|> Var <$> varP
-       <|> parens expP
-       <|> Val <$> valueP
+  uopexpP = baseP 
+      <|> Op1 <$> uopP <*> uopexpP
+  baseP   = forAllP <|> lenP 
+      <|> Var <$> varP <|> parens expP <|> Val <$> valueP -- added forAllP to the start of here.    
       -- .Length here
 
 -- | Parse an operator at a specified precedence level
@@ -215,15 +218,14 @@ singleBindP, multiBindP :: Parser [Binding]
 singleBindP = wsP $ many bindingP
 multiBindP  = wsP $ bindingP `P.sepBy` (stringP ",")
 
-forAllSingleBindP :: Parser Binding
-forAllSingleBindP = wsP $ bindingP
+
 
 -- | ...and predicates...
 predicateP :: Parser Predicate
-predicateP = wsP $ forAllP <|> justExprP where
-  justExprP, forAllP :: Parser Predicate
+predicateP = wsP $ justExprP where
+  justExprP:: Parser Predicate
   justExprP = liftA Predicate expP
-  forAllP   = Predicate <$> (Forall <$> (stringP "forall" *> forAllSingleBindP <* stringP "::") <*> expP)
+  -- forAllP   = Predicate <$> (Forall <$> (stringP "forall" *> forAllSingleBindP <* stringP "::") <*> expP)
      -- Works for: P.parse predicateP "forall x : int :: x > 0"
      -- Does not work for P.parse predicateP "forall x :: x > 0"
 
