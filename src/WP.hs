@@ -86,8 +86,9 @@ class Subst a where
 -- arrays for this project, so we have already left this bit out.
 
 instance Subst Expression where
-  subst (Var (Proj _ _)) _ _ = error "Ignore arrays for this project"
+  -- subst (Var (Proj _ _)) _ _ = error "Ignore arrays for this project"
   subst e x e' = case e of
+    Var (Proj n idx) -> Var $ Proj n (subst idx x e')
     Var (Name n) -> if n == x then e' else e
     Val v -> Val v
     Op1 uop expr -> Op1 uop $ subst expr x e'

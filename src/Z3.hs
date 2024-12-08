@@ -128,43 +128,66 @@ import qualified Data.Set as Set
 --   let smtString = toSMTAux e in
 --     constants ++ "(assert (not " ++ smtString ++ "))\n(check-sat)"
 
+-- toSMT :: Predicate -> String
+-- toSMT (Predicate e) =
+--   let variables = getVariables e
+--       constants = foldr (\b a -> ("(declare-const " ++ b ++ " Int)\n") ++ a) "" variables
+--       smtString = toSMTAux e 
+--   in
+--     constants ++ "(assert (not " ++ smtString ++ "))\n(check-sat)" "(declare-const a (Array Int Int))\n" 
 toSMT :: Predicate -> String
 toSMT (Predicate e) =
-  let variables = getVariables e
-      constants = foldr (\b a -> ("(declare-const " ++ b ++ " Int)\n") ++ a) "" variables
-      smtString = toSMTAux e 
-  in
-    constants ++ "(assert (not " ++ smtString ++ "))\n(check-sat)"
+  let variables = Set.toList $ getVariables e
+      constants = foldr (\(n, t) a -> "(declare-const " ++ n ++ " " ++ toSMTType t ++ ")\n" ++ a) "" variables
+      smtString = toSMTAux e
+      lengthDecl = "(declare-fun length ((Array Int Int)) Int)\n" -- Length function declaration
+  in lengthDecl ++ constants ++ "(assert (not " ++ smtString ++ "))\n(check-sat)"
+
+arrayValToSMT :: [Int] -> String
+arrayValToSMT arr =
+  foldl storeElem "((as const (Array Int Int)) 0)" (zip [0..] arr)
+  where
+    storeElem acc (i,v) = "(store " ++ acc ++ " " ++ show i ++ " " ++ show v ++ ")"
+
 
 toSMTAux :: Expression -> String
 toSMTAux e = case e of
-  Var (Proj _ _)      -> error "Ignore arrays for this project"
-  Var (Name n)        -> n
+  Var (Proj n idx)    -> "(select " ++ n ++ " " ++ toSMTAux idx ++ ")"
+  Var (Name n)     -> n
   Val (IntVal i)      -> show i
   Val (BoolVal b)     -> if b then "true" else "false"
-  Val _               -> error "Ignore arrays for this project"
+  Val (ArrayVal arr)  -> arrayValToSMT arr
   Op1 uop expr        -> op1Format uop expr
   Op2 expr1 bop expr2 -> op2Format expr1 bop expr2
   Forall bind expr    -> forallFormat bind expr
+
   -- let expr = Forall ("x", TInt) (Op2 (Var (Name "x")) Gt (Val (IntVal 0)))
   -- toSMTAux expr --> "(forall ((x Int)) (> x 0))"
 
 
+-- forallFormat :: Binding -> Expression -> String
+-- forallFormat (name, typ) expr =
+--   "(forall ((" ++ name ++ " " ++ toSMTType typ ++ ")) " ++ toSMTAux expr ++ ")"
 forallFormat :: Binding -> Expression -> String
-forallFormat (name, typ) expr =
-  "(forall ((" ++ name ++ " " ++ toSMTType typ ++ ")) " ++ toSMTAux expr ++ ")"
+forallFormat (n, t) expr =
+  let smtType = case t of
+        TInt -> "Int"
+        TBool -> "Bool"
+        TArrayInt -> "(Array Int Int)"
+  in "(forall ((" ++ n ++ " " ++ smtType ++ ")) " ++ toSMTAux expr ++ ")"
+
 
 -- Function to convert types to SMT-LIB types.
 toSMTType :: Type -> String
 toSMTType TInt     = "Int"
 toSMTType TBool    = "Bool"
-toSMTType TArrayInt = "Int" -- Placeholder for arrays.
+toSMTType TArrayInt = "(Array Int Int)" -- Placeholder for arrays.
 
 op1Format :: Uop -> Expression -> String
 op1Format uop expr = case uop of
   Neg -> "(- " ++ toSMTAux expr ++ ")" -- | "-" ++ toSMTAux expr | See if this needs changing (remove parens).
   Not -> "(not " ++ toSMTAux expr ++ ")"
-  Len -> error "Ignore arrays for this project"
+  Len -> "(length " ++ toSMTAux expr ++ ")"
 
 op2Format :: Expression -> Bop -> Expression -> String
 op2Format expr1 bop expr2 = 
@@ -187,14 +210,23 @@ opSymbol Disj    = "or"
 opSymbol Implies = "=>"
 opSymbol Iff     = "=" -- see the proper implementation if nec.
 
-getVariables :: Expression -> Set.Set String
-getVariables p = case p of
-  Var (Proj _ _)      -> error "Ignore arrays for this project"
-  Var (Name n)        -> Set.singleton n
-  Val _               -> Set.empty
-  Op1 uop expr        -> getVariables expr
-  Op2 expr1 bop expr2 -> Set.union (getVariables expr1) (getVariables expr2)
-  Forall bind expr    -> getVariables expr
+-- getVariables :: Expression -> Set.Set String
+-- getVariables p = case p of
+--   Var (Proj n idx)    -> Set.insert n (getVariables idx)
+--   Var (Name n)        -> Set.singleton n
+--   Val _               -> Set.empty
+--   Op1 uop expr        -> getVariables expr
+--   Op2 expr1 bop expr2 -> Set.union (getVariables expr1) (getVariables expr2)
+--   Forall bind expr    -> getVariables expr
+getVariables :: Expression -> Set (Name, Type)
+getVariables e = case e of
+  Var (Proj n idx)      -> Set.insert (n, TArrayInt) (getVariables idx) -- Treat as an array
+  Var (Name n)          -> Set.singleton (n, TInt)                     -- Scalar variable
+  Val _                 -> Set.empty                                   -- No variables in literals
+  Op1 _ expr            -> getVariables expr                           -- Recurse on unary operation
+  Op2 expr1 _ expr2     -> Set.union (getVariables expr1) (getVariables expr2) -- Combine both sides
+  Forall (n, t) expr    -> Set.delete (n, t) (getVariables expr)       -- Exclude bound variables
+
   -- grab var to be declared
 
 

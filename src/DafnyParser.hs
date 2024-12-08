@@ -118,11 +118,18 @@ typeP = constP "int" TInt <|> constP "bool" TBool <|> constP "array<int>" TArray
 forAllSingleBindP :: Parser Binding
 forAllSingleBindP = wsP $ bindingP
 
+evaluateSize :: Expression -> [Int]
+evaluateSize (Val (IntVal n))
+  | n >= 0    = replicate n 0  -- Create an array of size `n` with all elements set to `0`
+  | otherwise = error "Array size must be non-negative"
+evaluateSize _ = error "Invalid array size expression"
+
 -- P.parse specificationP "ensures m > 1 && forall j : int :: 2 <= j < m ==> m % j != 0" -> Right (Ensures (Predicate (Op2 (Op2 (Var (Name "m")) Gt (Val (IntVal 1))) Conj (Var (Name "forall")))))
  -- something wrong here when trying: P.parse specificationP "ensures isPrime <==> (m > 1 && forall j : int :: 2 <= j < m ==> m % j != 0)"
 expP :: Parser Expression
 expP = conjP where -- could put forAllP here
   forAllP = Forall <$> (stringP "forall" *> forAllSingleBindP <* stringP "::") <*> expP
+  arrayInitP = Val . ArrayVal . evaluateSize <$> (stringP "new" *> constP "int" TArrayInt *> brackets expP) -- NewArray <$> (stringP "new" *> constP "int" TArrayInt *> brackets expP)
   conjP   = compP `P.chainl1` opAtLevel (level Conj)
   compP   = catP `P.chainl1` opAtLevel (level Gt)
   catP    = sumP `P.chainl1` opAtLevel (level Eq)
@@ -130,7 +137,7 @@ expP = conjP where -- could put forAllP here
   prodP   = uopexpP `P.chainl1` opAtLevel (level Times)
   uopexpP = baseP 
       <|> Op1 <$> uopP <*> uopexpP
-  baseP   = forAllP <|> lenP 
+  baseP   = arrayInitP <|> forAllP <|> lenP 
       <|> Var <$> varP <|> parens expP <|> Val <$> valueP -- added forAllP to the start of here.    
       -- .Length here
 
@@ -276,6 +283,10 @@ specificationP = wsP $ requiresP <|> ensuresP <|> modifiesP where
      ensuresP  = Ensures <$> (stringP "ensures" *> predicateP)
      modifiesP = Modifies <$> (stringP "modifies" *> nameP)
 
+paramsP, returnsP :: Parser [Binding]
+paramsP  = parens (multiBindP <|> singleBindP <|> pure [])
+returnsP = (stringP "returns" *> paramsP) <|> pure []
+
 methodP :: Parser Method -- make sure wsP is consumed, cases w/ no specification
 methodP = wsP $ Method <$> (stringP "method" *> nameP) 
                <*> paramsP
@@ -283,9 +294,9 @@ methodP = wsP $ Method <$> (stringP "method" *> nameP)
                <*> specificationsP
                <*> braces blockP 
           where 
-          paramsP, returnsP :: Parser [Binding]
-          paramsP  = parens (multiBindP <|> singleBindP <|> pure [])
-          returnsP = (stringP "returns" *> paramsP) <|> pure []
+          -- paramsP, returnsP :: Parser [Binding]
+          -- paramsP  = parens (multiBindP <|> singleBindP <|> pure [])
+          -- returnsP = (stringP "returns" *> paramsP) <|> pure []
           
           specificationsP :: Parser [Specification]
           specificationsP = many specificationP <|> pure []

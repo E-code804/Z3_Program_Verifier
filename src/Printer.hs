@@ -240,11 +240,6 @@ instance PP Statement where
       PP.text ":=" <+> 
       pp expr
     ) <> PP.semi
-  -- pp (New binding expr) =
-  --   PP.text "var" <+>
-  --   pp binding <+>
-  --   PP.text ":= new" <+>
-  --   pp expr
   pp (Assert predicate) =
     (
       PP.text "assert" <+> 
@@ -280,13 +275,6 @@ instance PP [Binding] where
 -- | TODO: Implement pretty printing for predicates
 instance PP Predicate where
   pp (Predicate expr) = pp expr
-    -- if null bindings
-    --   then PP.empty <+>
-    --        pp expr
-    -- else PP.text "forall" <+>
-    --      PP.hcat (PP.punctuate PP.comma (map pp bindings)) <+>
-    --      PP.text "::" <+>
-    --      pp expr
 
 
 -- | TODO: Finally, implement pretty printing for MiniDafny methods

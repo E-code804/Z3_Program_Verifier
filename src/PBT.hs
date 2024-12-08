@@ -40,8 +40,14 @@ import Test.QuickCheck
     (===),
     collect,
     genericShrink,
-    suchThat
+    suchThat,
+    counterexample,
+    ioProperty
   )
+import System.Process (readProcess)
+import System.IO (openTempFile, hClose)
+import System.Exit (exitFailure)
+import Test.QuickCheck.Monadic (monadicIO, run, assert, stop)
 
 add1 :: Int -> Int -> Int
 add1 n1 n2 = n1 + n2
@@ -68,6 +74,12 @@ genValueForType TArrayInt = ArrayVal <$> listOf arbitrary
 genParamsForMethod :: Method -> Gen [Value]
 genParamsForMethod method = mapM genValueForType $ getParamTypes method
 
+methodParams :: Method -> [Binding]
+methodParams (Method _ ins _ _ _) = ins
+
+methodSpecs :: Method -> [Specification]
+methodSpecs (Method _ _ _ specs _) = specs
+
 -- Function to check preconditions of a method hold for given parameters.
 pre :: Method -> [Value] -> Bool
 pre (Method _ params _ specs _) vs = 
@@ -92,6 +104,61 @@ prop_m m =
         Just s -> post m s
         _ -> False
 
+checkPreWithZ3 :: Method -> [Value] -> IO Bool
+checkPreWithZ3 method args = do
+  let params = methodParams method
+  if length params /= length args
+    then return False
+    else do
+      let initStore = Map.fromList (zip (map fst params) args)
+      let reqExpr = requires (methodSpecs method)
+      -- Substitute parameters into requires
+      let reqSubstExpr = foldr (\(n,v) e -> subst e n (Val v)) reqExpr (Map.toList initStore)
+      let reqPred = Predicate reqSubstExpr
+      convertAndCheck reqPred "temp_requires.smt2"
+
+runIfPreHolds :: Method -> [Value] -> IO (Maybe Store)
+runIfPreHolds method args = do
+  preHolds <- checkPreWithZ3 method args
+  if preHolds
+    then return (exec method args)
+    else return Nothing
+
+checkPostWithZ3 :: Method -> Store -> IO Bool
+checkPostWithZ3 method store = do
+  let postExpr = ensures (methodSpecs method)
+  let postSubstExpr = foldr (\(n,v) e -> subst e n (Val v)) postExpr (Map.toList store)
+  let postPred = Predicate postSubstExpr
+  convertAndCheck postPred "temp_ensures.smt2"
+
+loadMethod :: FilePath -> IO Method
+loadMethod fp = do
+  result <- parseDafnyFile fp
+  case result of
+    Left err -> do
+      putStrLn $ "Error parsing file: " ++ show err
+      exitFailure
+    Right m  -> return m
+
+prop_methodCorrectness :: Method -> Property
+prop_methodCorrectness method =
+  forAll (genParamsForMethod method) $ \args ->
+    -- Use ==> to discard the test if preconditions don't hold
+    ioProperty $ do
+      preHolds <- checkPreWithZ3 method args
+      if not preHolds
+        then return True  -- Return True here so that QuickCheck discards (treat as trivial success)
+        else do
+          maybeStore <- runIfPreHolds method args
+          case maybeStore of
+            Nothing -> return False
+            Just store -> checkPostWithZ3 method store
+
+prop_checkFile :: FilePath -> IO ()
+prop_checkFile fp = do
+  method <- loadMethod fp
+  quickCheck (prop_methodCorrectness method)
+
 -- Basic Testing for IntDiv.dfy
 
 -- Needed to make a newtype wrapper to avoid conflict.
@@ -110,3 +177,4 @@ prop_IntDivValidInputs (MyIntPair (m, n)) =
   where
     d = m `div` n
     r = m `mod` n
+
