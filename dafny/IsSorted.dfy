@@ -1,5 +1,5 @@
 method IsSorted (a : array<int>) returns (isSorted : bool)
-    requires a.Length > 0 // Does not work when length is 0 for some reason
+    requires a.Length > 0
     ensures isSorted <==> forall j : int :: 1 <= j < a.Length ==> a[j-1] <= a[j]
 {
     isSorted := true;
